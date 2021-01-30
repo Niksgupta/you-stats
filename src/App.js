@@ -1,58 +1,77 @@
-import React, {useState} from "react";
-import "./App.css"
-import {Form, Button} from "react-bootstrap"
-const youtubeChannelId = require('get-youtube-channel-id');
+import React, { useState } from "react";
+import "bootstrap/dist/css/bootstrap.min.css";
+import { Button, Form } from "react-bootstrap";
 
-function App() {
-  
-  const [url, setUrl] = useState(null);
-  const [subs, setSubs] = useState(null);
-  const [videos, setVideos] = useState(null);
-  const [views, setViews] = useState(null);
+const API_KEY = "AIzaSyApxW7LuupLTV2y4W-pbZLEx1lawonvFqY";
 
-  const API_KEY = "AIzaSyApxW7LuupLTV2y4W-pbZLEx1lawonvFqY";
+export default function App() {
+  const [channels, setChannels] = useState([]);
+  const [url, setUrl] = useState("");
 
-  const inputChange= (e)=>{
-    console.log(e.target.value);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setChannels([]);
+
+    const fetchUrl = `https://youtube.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURI(
+      url
+    )}&type=channel&key=${API_KEY}`;
+
+    const data = await fetch(fetchUrl);
+    const result = await data.json();
+    console.log({ result });
+
+    const items = result.items.map(async (item) => {
+      const channelId = item.id.channelId;
+      const channelTitle = item.snippet.channelTitle;
+      const data = await fetch(
+        `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${API_KEY}`
+      );
+      const res = await data.json();
+      return { ...res.items[0], title: channelTitle };
+    });
+
+    const channelList = await Promise.all(items);
+    setChannels(channelList);
+  };
+
+  const handleChange = (e) => {
     setUrl(e.target.value);
-  }
+  };
 
-  async function submit(e) {
-     e.preventDefault();
-
-     const res = await youtubeChannelId(url);
-     console.log(res.id);
-
-     fetch(`https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${res.id}&key=${API_KEY}`)
-     .then((data) => data.json())
-     .then((res) =>{
-       console.log(res)
-       setSubs(res.items[0].statistics.subscriberCount);
-       setVideos(res.items[0].statistics.videoCount);
-       setViews(res.items[0].statistics.viewCount);
-     })
-  }
-  
   return (
     <div className="App">
-     <Form onSubmit={submit}>
+      <br />
+      <br />
+      <Form onSubmit={handleSubmit}>
         <Form.Group controlId="channelUrl">
-          <Form.Label>Enter Channel URL:</Form.Label>
-          <Form.Control type="text" name="url"
-          onChange={inputChange} value={url} required placeholder="Enter Channel URL" />
+          <Form.Label>Channel URL:</Form.Label>
+          <Form.Control
+            type="text"
+            name="url"
+            onChange={handleChange}
+            value={url}
+            required
+            placeholder="Enter Channel URL"
+          />
         </Form.Group>
         <Button variant="primary" type="submit">
-          Get stats
+          Submit
         </Button>
       </Form>
-      <br />
-      <br />
-      <hr />
-     <p>This channel have:- <b> {subs} </b>Subscribers..</p> 
-     <p> This channel have:- <b> {views} </b> Views..</p>
-      <p> This channel have:- <b> {videos} </b> Videos..</p> 
+      <li>
+        {channels.map((channel) => {
+          return (
+            <div key={channel.id}>
+              <h2>{channel.title}</h2>
+              You have {channel.statistics.subscriberCount} subscribers
+              <br />
+              You have {channel.statistics.viewCount} Videos
+              <br />
+              You have {channel.statistics.videoCount} Views
+            </div>
+          );
+        })}
+      </li>
     </div>
   );
 }
-
-export default App;
